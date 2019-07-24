@@ -1,21 +1,17 @@
 FROM ubuntu:16.04
 MAINTAINER Kimtaek <jinze1991@icloud.com>
 
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y locales
-RUN sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen && \
-    dpkg-reconfigure --frontend=noninteractive locales && \
-    update-locale LANG=en_US.UTF-8
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y locales tzdata \
+    && sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen \
+    && dpkg-reconfigure --frontend=noninteractive locales \
+    && update-locale LANG=en_US.UTF-8
 
-ENV LANGUAGE=en_US.UTF-8
-ENV LC_ALL=en_US.UTF-8
-ENV LC_CTYPE=UTF-8
-ENV LANG=en_US.UTF-8
-ENV TZ=Asia/Seoul
-ENV TERM xterm
-
-RUN apt-get update && apt-get dist-upgrade -y
-RUN DEBIAN_FRONTEND=noninteractive apt-get -y dist-upgrade
-RUN echo "Asia/Seoul" > /etc/timezone
+ENV DEBCONF_NOWARNINGS=yes \
+    LANG=en_US.UTF-8 \
+    LC_ALL=en_US.UTF-8 \
+    TZ=Asia/Shanghai
+RUN ln -fs /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && dpkg-reconfigure --frontend noninteractive tzdata
 
 # Install "software-properties-common" (for the "add-apt-repository")
 RUN DEBIAN_FRONTEND=noninteractive apt-get -y install software-properties-common
@@ -37,7 +33,6 @@ RUN echo "mysql-server mysql-server/root_password password root" | debconf-set-s
 RUN apt-get update && apt-get -y install nginx supervisor dialog redis-server \
     && mkdir -p /data/db
 
-RUN rm -rf /etc/php/5.6 /etc/php/7.0 /etc/php/7.2
 # Install PHP-CLI 7, some PHP extentions and some useful Tools with APT
 RUN apt-get install -y \
         php7.1 \
@@ -65,15 +60,16 @@ RUN apt-get install -y \
         curl \
         vim
 
+RUN rm -rf /etc/php/5.6 /etc/php/7.0 /etc/php/7.2 /etc/php/7.3
+RUN apt-get clean
+
 # Install Composer
 RUN curl -s http://getcomposer.org/installer | php \
     && mv composer.phar /usr/local/bin/composer
 
-RUN service nginx start && service php7.1-fpm start
-
 WORKDIR /www
 
-EXPOSE 80 443 9001 6379
+EXPOSE 80 443 3306 6379 9001
 
 ADD startup.sh /opt/bin/startup.sh
 RUN chmod u=rwx /opt/bin/startup.sh
