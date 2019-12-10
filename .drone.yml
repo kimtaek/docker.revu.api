@@ -1,0 +1,62 @@
+kind: pipeline
+type: docker
+name: build
+
+steps:
+  - name: PublishDevelopImage
+    image: plugins/ecr:latest
+    settings:
+      access_key:
+        from_secret: docker_username
+      secret_key:
+        from_secret: docker_password
+      region: ap-northeast-2
+      repo: docker.revu.api
+      registry: 652288390091.dkr.ecr.ap-northeast-2.amazonaws.com
+      tags: develop
+      dockerfile: Dockerfile
+    when:
+      branch:
+        - develop
+      event:
+        - push
+
+  - name: PublishMasterImage
+    image: plugins/ecr:latest
+    settings:
+      registry: 652288390091.dkr.ecr.ap-northeast-2.amazonaws.com
+      repo: docker.revu.api
+      tags: [ 'latest', '${DRONE_TAG=${DRONE_COMMIT}}' ]
+      access_key:
+        from_secret: docker_username
+      secret_key:
+        from_secret: docker_password
+      region: ap-northeast-2
+      dockerfile: Dockerfile
+    when:
+      branch:
+        - master
+      event:
+        - push
+
+  - name: BuildNotification
+    image: plugins/slack
+    settings:
+      webhook: https://hooks.slack.com/services/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
+      channel: deployment
+      username: Drone
+      template: >
+        {{#success build.status}}
+          {{build.author}} :: build ${DRONE_REPO} `{{build.branch}}{{build.tag}}` {{build.number}} succeeded. Good job.
+        {{else}}
+          {{build.author}} :: build ${DRONE_REPO} `{{build.branch}}{{build.tag}}` {{build.number}} failed. Fix me please.
+        {{/success}}
+    depends_on:
+      - PublishDevelopImage
+      - PublishMasterImage
+    when:
+      branch:
+        - develop
+        - master
+      event:
+        - push
